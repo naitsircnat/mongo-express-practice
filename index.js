@@ -17,6 +17,8 @@ async function connect(mongoURI, dbName) {
 }
 
 async function main() {
+  const { ObjectId } = require("mongodb");
+
   let db = await connect(mongoURI, "sample_supplies");
 
   // Get all sales
@@ -41,8 +43,6 @@ async function main() {
   });
 
   // Get a specific sale
-
-  const { ObjectId } = require("mongodb");
 
   app.get("/sale/:id", async (req, res) => {
     try {
@@ -104,15 +104,6 @@ async function main() {
   });
 
   // Post route
-  /*
-  - Get ObjectID object from mongodb
-  - Create app.post with try and catch 
-  - Create variables to store respective data to be inserted
-  - Perform validation to check that all required data are provided
-  - Insert data into collection
-  - Create response that contains message and id of inserted object
-  */
-
   app.post("/new", async (req, res) => {
     try {
       const { items, storeLocation, customer, couponUsed, purchaseMethod } =
@@ -147,6 +138,67 @@ async function main() {
       });
     } catch (error) {
       console.error("Error adding sale", error);
+      res.status(500).json({ Error: "Internal server error" });
+    }
+  });
+
+  // Update route
+  /*
+  - Create app.put - incorporate try and catch - use sale ID as a parameter
+  - Create variables that would store the data to be updated
+  - Do basic validation for data to be provided
+  - Create variable to store updated recipe 
+  - Retrieve relevant recipe based on ID and update it
+  - Do a check to see if there was a match. If no, show 400 error
+  - Respond with result 
+  */
+
+  app.put("/:saleId", async (req, res) => {
+    try {
+      const id = req.params.saleId;
+
+      const {
+        saleDate,
+        items,
+        storeLocation,
+        customer,
+        couponUsed,
+        purchaseMethod,
+      } = req.body;
+
+      if (
+        !saleDate ||
+        !items ||
+        !storeLocation ||
+        !customer ||
+        !couponUsed ||
+        !purchaseMethod
+      ) {
+        return res
+          .status(400)
+          .json({ Error: "Please provided required data inputs" });
+      }
+
+      const updatedSale = {
+        saleDate,
+        items,
+        storeLocation,
+        customer,
+        couponUsed,
+        purchaseMethod,
+      };
+
+      let result = await db
+        .collection("sales")
+        .updateOne({ _id: new ObjectId(id) }, { $set: updatedSale });
+
+      if (result.matchedCount === 0) {
+        return res.status(400).json({ Error: "Sale not found" });
+      }
+
+      res.json({ Status: "Sale successfully updated" });
+    } catch (error) {
+      console.error("Error updating sale:", error);
       res.status(500).json({ Error: "Internal server error" });
     }
   });
