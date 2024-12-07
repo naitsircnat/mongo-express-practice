@@ -255,16 +255,6 @@ async function main() {
   });
 
   // Update mgt review route
-  /*
-  - Create put route - incl. try and catch - URI: incl. saleId, reviews, reviewId
-  - Create variables/objects to store saleId, reviewId and data to update
-  - Basic validation
-  - Create object for updated review
-  - insert review
-  - if no match, give 404 error
-  - respond with result and reviewId
-  */
-
   app.put("/sales/:saleId/reviews/:reviewId", async (req, res) => {
     try {
       const { saleId, reviewId } = req.params;
@@ -306,6 +296,45 @@ async function main() {
       res
         .status(500)
         .json({ "Error updating review": "Internal server error" });
+    }
+  });
+
+  // Route to delete reviews
+  /*
+  - Create app.delete; use saleId and reviewId as params
+  - Create consts for saleId and reviewId
+  - Delete review
+  - if no match, say sale not found. if no modification, say review not found
+  - success message response 
+  */
+
+  app.delete("/sales/:saleId/reviews/:reviewId", async (req, res) => {
+    try {
+      const { saleId, reviewId } = req.params;
+
+      let result = await db.collection("sales").updateOne(
+        {
+          _id: new ObjectId(saleId),
+        },
+        {
+          $pull: { reviews: { review_id: new ObjectId(reviewId) } },
+        }
+      );
+
+      if (result.matchedCount === 0) {
+        res.status(404).json({ Error: "Sale not found" });
+      }
+
+      if (result.modifiedCount === 0) {
+        res.status(404).json({ Error: "Review not found" });
+      }
+
+      res.json({ Message: "Review deleted." });
+    } catch (error) {
+      console.error("Error:", error);
+      res
+        .status(500)
+        .json({ "Error deleting review": "Internal server error" });
     }
   });
 }
