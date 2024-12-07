@@ -214,16 +214,6 @@ async function main() {
   });
 
   // Add mgt review route
-  /*
-  - Create app.post route; incl try and catch; incl. saleId and reviews
-  - Create variables to store provided saleId and data for new review
-  - Basic validation
-  - Create object for new review
-  - Perform update
-  - If no matched sale, return 400 error
-  - Return result that includes inserted Id
-  */
-
   app.post("/sales/:saleId/reviews", async (req, res) => {
     try {
       const id = req.params.saleId;
@@ -251,7 +241,7 @@ async function main() {
       );
 
       if (result.matchedCount === 0) {
-        return res.status(400).json({ Error: "Recipe not found" });
+        return res.status(404).json({ Error: "Recipe not found" });
       }
 
       res.status(201).json({
@@ -261,6 +251,61 @@ async function main() {
     } catch (error) {
       console.error("Error", error);
       res.status(500).json({ Error: "Error adding review" });
+    }
+  });
+
+  // Update mgt review route
+  /*
+  - Create put route - incl. try and catch - URI: incl. saleId, reviews, reviewId
+  - Create variables/objects to store saleId, reviewId and data to update
+  - Basic validation
+  - Create object for updated review
+  - insert review
+  - if no match, give 404 error
+  - respond with result and reviewId
+  */
+
+  app.put("/sales/:saleId/reviews/:reviewId", async (req, res) => {
+    try {
+      const { saleId, reviewId } = req.params;
+
+      const { user, rating, comment } = req.body;
+
+      if (!user || !rating || !comment) {
+        return res.status(400).json({ Error: "Missing required fields" });
+      }
+
+      const updatedReview = {
+        review_id: new ObjectId(reviewId),
+        user,
+        rating: Number(rating),
+        comment,
+        date: new Date(),
+      };
+
+      const result = await db.collection("sales").updateOne(
+        {
+          _id: new ObjectId(saleId),
+          "reviews.review_id": new ObjectId(reviewId),
+        },
+        {
+          $set: { "reviews.$": updatedReview },
+        }
+      );
+
+      if (result.matchedCount === 0) {
+        return res.status(404).json({ Error: "Sale or review not found" });
+      }
+
+      res.json({
+        Success: "Review updated successfully",
+        review_id: reviewId,
+      });
+    } catch (error) {
+      console.error("Error: ", error);
+      res
+        .status(500)
+        .json({ "Error updating review": "Internal server error" });
     }
   });
 }
