@@ -10,6 +10,33 @@ require("dotenv").config();
 const mongoClient = require("mongodb").MongoClient;
 const mongoURI = process.env.MONGO_URI;
 
+const bcrypt = require("bcrypt");
+const jwt = require("jsonwebtoken");
+
+const generateAccessToken = (id, email) => {
+  return jwt.sign(
+    {
+      userId: id,
+      email: email,
+    },
+    process.env.TOKEN_SECRET,
+    {
+      expiresIn: "1h",
+    }
+  );
+};
+
+const verifyToken = (req, res, next) => {
+  const authHeader = req.headers["authorization"];
+  const token = authHeader && authHeader.split(" ")[1];
+  if (!token) return res.sendStatus(403);
+  jwt.verify(token, process.env.TOKEN_SECRET, (err, user) => {
+    if (err) return res.sendStatus(403);
+    req.user = user;
+    next();
+  });
+};
+
 async function connect(mongoURI, dbName) {
   let client = await mongoClient.connect(mongoURI);
   let db = client.db(dbName);
@@ -22,7 +49,7 @@ async function main() {
   let db = await connect(mongoURI, "sample_supplies");
 
   // Get all sales
-  app.get("/sales", async (req, res) => {
+  app.get("/sales", verifyToken, async (req, res) => {
     try {
       const sales = await db
         .collection("sales")
@@ -300,14 +327,6 @@ async function main() {
   });
 
   // Route to delete reviews
-  /*
-  - Create app.delete; use saleId and reviewId as params
-  - Create consts for saleId and reviewId
-  - Delete review
-  - if no match, say sale not found. if no modification, say review not found
-  - success message response 
-  */
-
   app.delete("/sales/:saleId/reviews/:reviewId", async (req, res) => {
     try {
       const { saleId, reviewId } = req.params;
@@ -336,6 +355,66 @@ async function main() {
         .status(500)
         .json({ "Error deleting review": "Internal server error" });
     }
+  });
+
+  // Route to add user
+  app.post("/users", async (req, res) => {
+    try {
+      const { email, password } = req.body;
+
+      if (!email || !password) {
+        res.status(400).json({ Error: "Provide all required fields" });
+      }
+
+      let result = await db
+        .collection("users")
+        .insertOne({ email, password: await bcrypt.hash(password, 12) });
+
+      res
+        .status(201)
+        .json({ Status: "New user successfully created", User: result });
+    } catch (error) {
+      console.error("Error:", error);
+      res.status(500).json({ "Error creating user": "Internal server error" });
+    }
+  });
+
+  // Route to log in
+  /*
+  - create app.post with relevant URI; 
+  - create consts to assign email and password
+  - add validation for whether email and password are provided
+  - find user
+  - validate password
+  - if one of the above not present/invalid, return 400 error
+  - generate access token
+  - return token
+  */
+
+  app.post("/login", async (req, res) => {
+    const { email, password } = req.body;
+
+    if (!email || !password) {
+      return res
+        .status(400)
+        .json({ Error: "Please provide all required credentials" });
+    }
+
+    const user = await db.collection("users").findOne({ email: email });
+
+    if (!user) {
+      return res.status(401).json({ Error: "Invalid user" });
+    }
+
+    const isValidPassword = await bcrypt.compare(password, user.password);
+
+    if (!isValidPassword) {
+      return res.status(401).json({ Error: "Invalid password" });
+    }
+
+    const accessToken = generateAccessToken(user._id, user.email);
+
+    res.json({ "access token": accessToken });
   });
 }
 
