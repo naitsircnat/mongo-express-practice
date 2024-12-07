@@ -132,7 +132,7 @@ async function main() {
 
       const result = await db.collection("sales").insertOne(newSale);
 
-      res.json({
+      res.status(201).json({
         message: "Sale inserted",
         id: result.insertedId,
       });
@@ -194,13 +194,6 @@ async function main() {
   });
 
   // Delete route
-  /*
-  - create app.delete - include try and catch and relevant URI parameter incl. id to delete
-  - create variable to store id to delete based on URI parameter
-  - execute deletion
-  - respond with success message
-  */
-
   app.delete("/sales/:saleId", async (req, res) => {
     try {
       const id = req.params.saleId;
@@ -217,6 +210,57 @@ async function main() {
     } catch (error) {
       console.error({ Error: "Error deleting sale" });
       res.status(500).json({ Status: "Internal server error" });
+    }
+  });
+
+  // Add mgt review route
+  /*
+  - Create app.post route; incl try and catch; incl. saleId and reviews
+  - Create variables to store provided saleId and data for new review
+  - Basic validation
+  - Create object for new review
+  - Perform update
+  - If no matched sale, return 400 error
+  - Return result that includes inserted Id
+  */
+
+  app.post("/sales/:saleId/reviews", async (req, res) => {
+    try {
+      const id = req.params.saleId;
+      const { user, rating, comment } = req.body;
+
+      if (!user || !rating || !comment) {
+        return res.status(400).json({ Error: "Incompleted fields provided" });
+      }
+
+      const newReview = {
+        review_id: new ObjectId(),
+        user,
+        rating: Number(rating),
+        comment,
+        date: new Date(),
+      };
+
+      const result = await db.collection("sales").updateOne(
+        {
+          _id: new ObjectId(id),
+        },
+        {
+          $push: { reviews: newReview },
+        }
+      );
+
+      if (result.matchedCount === 0) {
+        return res.status(400).json({ Error: "Recipe not found" });
+      }
+
+      res.status(201).json({
+        Status: "Review added",
+        review_id: newReview.review_id,
+      });
+    } catch (error) {
+      console.error("Error", error);
+      res.status(500).json({ Error: "Error adding review" });
     }
   });
 }
