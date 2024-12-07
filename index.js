@@ -143,16 +143,6 @@ async function main() {
   });
 
   // Update route
-  /*
-  - Create app.put - incorporate try and catch - use sale ID as a parameter
-  - Create variables that would store the data to be updated
-  - Do basic validation for data to be provided
-  - Create variable to store updated recipe 
-  - Retrieve relevant recipe based on ID and update it
-  - Do a check to see if there was a match. If no, show 400 error
-  - Respond with result 
-  */
-
   app.put("/:saleId", async (req, res) => {
     try {
       const id = req.params.saleId;
@@ -200,6 +190,33 @@ async function main() {
     } catch (error) {
       console.error("Error updating sale:", error);
       res.status(500).json({ Error: "Internal server error" });
+    }
+  });
+
+  // Delete route
+  /*
+  - create app.delete - include try and catch and relevant URI parameter incl. id to delete
+  - create variable to store id to delete based on URI parameter
+  - execute deletion
+  - respond with success message
+  */
+
+  app.delete("/sales/:saleId", async (req, res) => {
+    try {
+      const id = req.params.saleId;
+
+      let result = await db
+        .collection("sales")
+        .deleteOne({ _id: new ObjectId(id) });
+
+      if (result.deletedCount === 0) {
+        res.status(400).json({ Error: "Sale not found" });
+      }
+
+      res.json({ Status: "Sale deleted." });
+    } catch (error) {
+      console.error({ Error: "Error deleting sale" });
+      res.status(500).json({ Status: "Internal server error" });
     }
   });
 }
